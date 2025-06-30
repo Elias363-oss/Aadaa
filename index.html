@@ -1,21 +1,23 @@
-<!DOCTYPE html><html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <title>Mini Brawl Arena</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Mini Brawl v2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <style>
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: #222;
+      background: #111;
     }
     canvas {
       display: block;
-      margin: auto;
-      background: #333;
-      border: 4px solid #fff;
+      margin: 0 auto;
+      background: #222;
+      touch-action: none;
     }
-    .touch-controls {
+    .controls {
       position: fixed;
       bottom: 20px;
       width: 100%;
@@ -24,146 +26,127 @@
       z-index: 10;
     }
     .btn {
-      width: 60px;
-      height: 60px;
-      background: rgba(255, 255, 255, 0.3);
-      border: 2px solid #fff;
-      border-radius: 50%;
-      text-align: center;
-      line-height: 60px;
-      font-size: 24px;
-      color: #fff;
-      user-select: none;
+      padding: 16px 24px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: none;
+      color: white;
+      background: #333;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
   </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas><div class="touch-controls">
-  <div class="btn" id="leftBtn">⟵</div>
-  <div class="btn" id="rightBtn">⟶</div>
-  <div class="btn" id="jumpBtn">⬆</div>
-</div><script>
-const canvas = document.getElementById('gameCanvas');
+<canvas id="game"></canvas>
+
+<div class="controls">
+  <button class="btn" onclick="players[0].attack(players[1])">👊 Golpear P1</button>
+  <button class="btn" onclick="players[1].attack(players[0])">👊 Golpear P2</button>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const gravity = 0.5;
-const playerSize = 50;
+const playerSize = 40;
+const gravity = 0.8;
+
 const ring = {
-  x: 100,
-  y: 100,
-  width: canvas.width - 200,
-  height: canvas.height - 200
+  x: 20,
+  y: 80,
+  width: canvas.width - 40,
+  height: canvas.height - 160
+};
+
+const platform = {
+  x: ring.x,
+  y: ring.y + ring.height - 60,
+  width: ring.width,
+  height: 20
 };
 
 class Player {
-  constructor(id, x, y, color) {
-    this.id = id;
+  constructor(x, color) {
     this.x = x;
-    this.y = y;
-    this.vx = 0;
-    this.vy = 0;
+    this.y = platform.y - playerSize;
     this.color = color;
-    this.lives = 3;
     this.hp = 100;
-    this.onGround = false;
-    this.controls = {};
+    this.lives = 3;
+    this.dy = 0;
   }
+
   draw() {
     ctx.fillStyle = this.color;
     ctx.fillRect(this.x, this.y, playerSize, playerSize);
+    // HP bar
+    ctx.fillStyle = "lime";
+    ctx.fillRect(this.x, this.y - 10, (this.hp / 100) * playerSize, 5);
   }
+
   update() {
-    if (this.controls.left) this.vx = -5;
-    else if (this.controls.right) this.vx = 5;
-    else this.vx = 0;
-
-    if (this.controls.jump && this.onGround) {
-      this.vy = -10;
-      this.onGround = false;
+    this.dy += gravity;
+    this.y += this.dy;
+    // Collision with platform
+    if (this.y + playerSize >= platform.y) {
+      this.y = platform.y - playerSize;
+      this.dy = 0;
     }
-
-    this.vy += gravity;
-    this.x += this.vx;
-    this.y += this.vy;
-
-    if (
-      this.x < ring.x ||
-      this.x + playerSize > ring.x + ring.width ||
-      this.y + playerSize > ring.y + ring.height
-    ) {
-      this.respawn();
-    }
-
-    if (this.y + playerSize >= ring.y + ring.height) {
-      this.y = ring.y + ring.height - playerSize;
-      this.vy = 0;
-      this.onGround = true;
+    // Out of ring
+    if (this.y > ring.y + ring.height) {
+      this.lives--;
+      this.hp = 100;
+      this.x = Math.random() * (ring.width - playerSize) + ring.x;
+      this.y = ring.y;
     }
   }
-  respawn() {
-    this.lives -= 1;
-    this.x = ring.x + Math.random() * (ring.width - playerSize);
-    this.y = ring.y + 50;
-    this.vx = 0;
-    this.vy = 0;
+
+  attack(other) {
+    const dx = Math.abs(this.x - other.x);
+    const dy = Math.abs(this.y - other.y);
+    if (dx < playerSize && dy < playerSize) {
+      other.hp -= 10;
+      if (other.hp <= 0) {
+        other.hp = 100;
+        other.lives--;
+        other.x = ring.x + Math.random() * (ring.width - playerSize);
+        other.y = ring.y;
+      }
+    }
   }
 }
 
 const players = [
-  new Player(1, 150, 150, 'red'),
-  new Player(2, 300, 150, 'blue')
+  new Player(ring.x + 50, "red"),
+  new Player(ring.x + ring.width - 90, "blue")
 ];
-
-const keys = {};
-window.addEventListener('keydown', e => keys[e.key] = true);
-window.addEventListener('keyup', e => keys[e.key] = false);
-
-function handleControls() {
-  players[0].controls = {
-    left: keys['a'] || touch.left,
-    right: keys['d'] || touch.right,
-    jump: keys['w'] || touch.jump
-  };
-  players[1].controls = {
-    left: keys['ArrowLeft'],
-    right: keys['ArrowRight'],
-    jump: keys['ArrowUp']
-  };
-}
 
 function drawRing() {
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 4;
   ctx.strokeRect(ring.x, ring.y, ring.width, ring.height);
+  ctx.fillStyle = '#555';
+  ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
 }
 
-function gameLoop() {
+function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawRing();
-  handleControls();
   players.forEach(p => {
     p.update();
     p.draw();
   });
-  requestAnimationFrame(gameLoop);
+  requestAnimationFrame(draw);
 }
 
-const touch = { left: false, right: false, jump: false };
+window.addEventListener('keydown', e => {
+  if (e.key === 'f') players[0].attack(players[1]);
+  if (e.key === 'l') players[1].attack(players[0]);
+});
 
-function setupTouchControls() {
-  document.getElementById('leftBtn').addEventListener('touchstart', () => touch.left = true);
-  document.getElementById('leftBtn').addEventListener('touchend', () => touch.left = false);
-
-  document.getElementById('rightBtn').addEventListener('touchstart', () => touch.right = true);
-  document.getElementById('rightBtn').addEventListener('touchend', () => touch.right = false);
-
-  document.getElementById('jumpBtn').addEventListener('touchstart', () => touch.jump = true);
-  document.getElementById('jumpBtn').addEventListener('touchend', () => touch.jump = false);
-}
-
-setupTouchControls();
-gameLoop();
-</script></body>
+draw();
+</script>
+</body>
 </html>
