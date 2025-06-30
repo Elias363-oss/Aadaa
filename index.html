@@ -1,0 +1,169 @@
+<!DOCTYPE html><html>
+<head>
+  <title>Mini Brawl Arena</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #222;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #333;
+      border: 4px solid #fff;
+    }
+    .touch-controls {
+      position: fixed;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      z-index: 10;
+    }
+    .btn {
+      width: 60px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.3);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 60px;
+      font-size: 24px;
+      color: #fff;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas><div class="touch-controls">
+  <div class="btn" id="leftBtn">⟵</div>
+  <div class="btn" id="rightBtn">⟶</div>
+  <div class="btn" id="jumpBtn">⬆</div>
+</div><script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const gravity = 0.5;
+const playerSize = 50;
+const ring = {
+  x: 100,
+  y: 100,
+  width: canvas.width - 200,
+  height: canvas.height - 200
+};
+
+class Player {
+  constructor(id, x, y, color) {
+    this.id = id;
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.color = color;
+    this.lives = 3;
+    this.hp = 100;
+    this.onGround = false;
+    this.controls = {};
+  }
+  draw() {
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x, this.y, playerSize, playerSize);
+  }
+  update() {
+    if (this.controls.left) this.vx = -5;
+    else if (this.controls.right) this.vx = 5;
+    else this.vx = 0;
+
+    if (this.controls.jump && this.onGround) {
+      this.vy = -10;
+      this.onGround = false;
+    }
+
+    this.vy += gravity;
+    this.x += this.vx;
+    this.y += this.vy;
+
+    if (
+      this.x < ring.x ||
+      this.x + playerSize > ring.x + ring.width ||
+      this.y + playerSize > ring.y + ring.height
+    ) {
+      this.respawn();
+    }
+
+    if (this.y + playerSize >= ring.y + ring.height) {
+      this.y = ring.y + ring.height - playerSize;
+      this.vy = 0;
+      this.onGround = true;
+    }
+  }
+  respawn() {
+    this.lives -= 1;
+    this.x = ring.x + Math.random() * (ring.width - playerSize);
+    this.y = ring.y + 50;
+    this.vx = 0;
+    this.vy = 0;
+  }
+}
+
+const players = [
+  new Player(1, 150, 150, 'red'),
+  new Player(2, 300, 150, 'blue')
+];
+
+const keys = {};
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup', e => keys[e.key] = false);
+
+function handleControls() {
+  players[0].controls = {
+    left: keys['a'] || touch.left,
+    right: keys['d'] || touch.right,
+    jump: keys['w'] || touch.jump
+  };
+  players[1].controls = {
+    left: keys['ArrowLeft'],
+    right: keys['ArrowRight'],
+    jump: keys['ArrowUp']
+  };
+}
+
+function drawRing() {
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(ring.x, ring.y, ring.width, ring.height);
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawRing();
+  handleControls();
+  players.forEach(p => {
+    p.update();
+    p.draw();
+  });
+  requestAnimationFrame(gameLoop);
+}
+
+const touch = { left: false, right: false, jump: false };
+
+function setupTouchControls() {
+  document.getElementById('leftBtn').addEventListener('touchstart', () => touch.left = true);
+  document.getElementById('leftBtn').addEventListener('touchend', () => touch.left = false);
+
+  document.getElementById('rightBtn').addEventListener('touchstart', () => touch.right = true);
+  document.getElementById('rightBtn').addEventListener('touchend', () => touch.right = false);
+
+  document.getElementById('jumpBtn').addEventListener('touchstart', () => touch.jump = true);
+  document.getElementById('jumpBtn').addEventListener('touchend', () => touch.jump = false);
+}
+
+setupTouchControls();
+gameLoop();
+</script></body>
+</html>
